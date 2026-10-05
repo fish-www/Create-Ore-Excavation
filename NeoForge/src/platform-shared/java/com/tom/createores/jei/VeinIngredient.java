@@ -1,6 +1,6 @@
 package com.tom.createores.jei;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
@@ -59,14 +59,16 @@ public class VeinIngredient implements IIngredientHelper<Vein>, IIngredientRende
 	@Override
 	@Deprecated
 	public List<Component> getTooltip(Vein ingredient, TooltipFlag tooltipFlag) {
-		return Collections.emptyList();
+		List<Component> tooltip = new ArrayList<>();
+		tooltip.add(ingredient.recipe0().veinName);
+		if(ingredient.recipe0().isInfiniteClient())tooltip.add(Component.translatable("tooltip.coe.infiniteVeins"));
+		else tooltip.add(Component.translatable("tooltip.coe.finiteVeins", NumberFormatter.formatNumber(ingredient.recipe0().getMinAmountClient()), NumberFormatter.formatNumber(ingredient.recipe0().getMaxAmountClient())));
+		return tooltip;
 	}
 
 	@Override
 	public void getTooltip(ITooltipBuilder tooltip, Vein ingredient, TooltipFlag tooltipFlag) {
-		tooltip.add(ingredient.recipe0().veinName);
-		if(ingredient.recipe0().isInfiniteClient())tooltip.add(Component.translatable("tooltip.coe.infiniteVeins"));
-		else tooltip.add(Component.translatable("tooltip.coe.finiteVeins", NumberFormatter.formatNumber(ingredient.recipe0().getMinAmountClient()), NumberFormatter.formatNumber(ingredient.recipe0().getMaxAmountClient())));
+		tooltip.addAll(getTooltip(ingredient, tooltipFlag));
 	}
 
 	@Override
