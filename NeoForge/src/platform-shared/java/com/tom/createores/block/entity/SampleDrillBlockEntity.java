@@ -33,12 +33,14 @@ import com.tom.createores.client.ClientUtil;
 import com.tom.createores.recipe.VeinRecipe;
 import com.tom.createores.util.DimChunkPos;
 import com.tom.createores.util.NumberFormatter;
+import com.tom.createores.util.TimeFormatter;
 import com.tom.createores.util.TooltipUtil;
 
 public class SampleDrillBlockEntity extends SmartBlockEntity implements IHaveGoggleInformation, IHaveHoveringInformation, IDrill {
 	public static final int DRILL_TIME = 200;
 	private ResourceLocation veinClient;
 	private long resourceRemClient;
+	private long regenRemClient = -1;
 	private RecipeHolder<VeinRecipe> vein;
 	private OreData data;
 	private int progress = 0;
@@ -68,7 +70,14 @@ public class SampleDrillBlockEntity extends SmartBlockEntity implements IHaveGog
 		} else if(airTankLevel > 0.2f) {
 			TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.sample_drill.click_to_start"));
 		}
-		if(resourceRemClient != 0)TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.resourceRemaining", NumberFormatter.formatNumber(resourceRemClient)));
+		if(resourceRemClient > 0)TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.resourceRemaining", NumberFormatter.formatNumber(resourceRemClient)));
+		if(veinR != null && !veinR.isInfiniteClient()) {
+			if(resourceRemClient < 0 && regenRemClient >= 0) {
+				TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.regenRemaining", TimeFormatter.formatTicks(regenRemClient)));
+			} else if(resourceRemClient > 0) {
+				TooltipUtil.forGoggles(tooltip, veinR.getRegenDescription());
+			}
+		}
 		if (airTankLevel < 0)
 			TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.sample_drill.no_air"));
 		else if (airTankLevel < 0.21f)
@@ -126,7 +135,8 @@ public class SampleDrillBlockEntity extends SmartBlockEntity implements IHaveGog
 		if(clientPacket) {
 			if(vein != null) {
 				compound.putString("veinId", vein.id().toString());
-				compound.putLong("resRem", data.getResourcesRemaining(vein.value()));
+				compound.putLong("resRem", data.getResourcesRemaining(vein.id(), level.getGameTime()));
+				compound.putLong("regenRem", data.ticksUntilRegen(vein.id(), level.getGameTime()));
 			}
 			compound.putFloat("air", airTankLevel);
 		}
@@ -141,6 +151,7 @@ public class SampleDrillBlockEntity extends SmartBlockEntity implements IHaveGog
 			if(compound.contains("veinId")) {
 				veinClient = ResourceLocation.tryParse(compound.getString("veinId"));
 				resourceRemClient = compound.getLong("resRem");
+				regenRemClient = compound.contains("regenRem") ? compound.getLong("regenRem") : -1L;
 			} else
 				veinClient = null;
 			airTankLevel = compound.getFloat("air");
@@ -156,7 +167,7 @@ public class SampleDrillBlockEntity extends SmartBlockEntity implements IHaveGog
 			if (vein != null) {
 				ItemStack is = player.getItemInHand(hand);
 				if (is.getItem() == Registration.VEIN_ATLAS_ITEM.get()) {
-					Registration.VEIN_ATLAS_ITEM.get().addVein(player, is, vein, new DimChunkPos(level, worldPosition), data.getRandomMul());
+					Registration.VEIN_ATLAS_ITEM.get().addVein(player, is, vein, new DimChunkPos(level, worldPosition), data.getTotal(vein.id()));
 					return true;
 				}
 				player.displayClientMessage(Component.translatable("chat.coe.sampleDrill.noAtlas"), true);

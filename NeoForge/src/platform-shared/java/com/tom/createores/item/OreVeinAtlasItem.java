@@ -38,8 +38,34 @@ public class OreVeinAtlasItem extends Item implements PlatformMenuProvider {
 		super(p_41383_);
 	}
 
-	public void addVein(Player player, ItemStack is, RecipeHolder<VeinRecipe> vein, DimChunkPos pos, float randomMul) {
-		player.displayClientMessage(Component.translatable("chat.coe.sampleDrill.addedToAtlas"), false);
+	public static ItemStack findAtlas(Player player) {
+		for (int i = 0;i < player.getInventory().getContainerSize(); i++) {
+			ItemStack is = player.getInventory().getItem(i);
+			if (is.getItem() == Registration.VEIN_ATLAS_ITEM.get())return is;
+		}
+		return ItemStack.EMPTY;
+	}
+
+	/**
+	 * Removes a position from the atlas, used when an ore cluster is depleted.
+	 */
+	public static void removeVein(Player player, DimChunkPos pos) {
+		ItemStack atlas = findAtlas(player);
+		if (atlas.isEmpty())return;
+		OreVeinAtlasData comp = new OreVeinAtlasData(atlas.get(CreateOreExcavation.ORE_VEIN_ATLAS_DATA_COMPONENT));
+		comp.removeVein(pos);
+		if (comp.isEdited())atlas.set(CreateOreExcavation.ORE_VEIN_ATLAS_DATA_COMPONENT, comp.finish());
+	}
+
+	public void addVein(Player player, ItemStack is, RecipeHolder<VeinRecipe> vein, DimChunkPos pos, float amount) {
+		addVein(player, is, vein, pos, amount, "chat.coe.sampleDrill.addedToAtlas");
+	}
+
+	/**
+	 * @param amount the amount of ore the vein holds, 0 for an infinite vein
+	 */
+	public void addVein(Player player, ItemStack is, RecipeHolder<VeinRecipe> vein, DimChunkPos pos, float amount, String messageKey) {
+		player.displayClientMessage(Component.translatable(messageKey), false);
 
 		OreVeinAtlasData comp = new OreVeinAtlasData(is.get(CreateOreExcavation.ORE_VEIN_ATLAS_DATA_COMPONENT));
 		if (!comp.discovered().contains(vein.id())) {
@@ -48,7 +74,7 @@ public class OreVeinAtlasItem extends Item implements PlatformMenuProvider {
 
 		var vn = comp.veins().get(pos);
 		if (vn == null || !vn.id().equals(vein.id())) {
-			comp.addVein(pos, new OreVeinData(vein.id(), randomMul, false));
+			comp.addVein(pos, new OreVeinData(vein.id(), amount, false));
 		}
 
 		if (comp.isEdited()) {

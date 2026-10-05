@@ -2,12 +2,18 @@ package com.tom.createores.util;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.QuartPos;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.SectionPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -15,12 +21,15 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
 
 import com.tom.createores.CreateOreExcavation;
 import com.tom.createores.OreData;
@@ -28,126 +37,164 @@ import com.tom.createores.OreDataAttachment;
 import com.tom.createores.recipe.VeinRecipe;
 
 public class RandomSpreadGenerator {
-	private List<RecipeHolder<VeinRecipe>> recipes = new ArrayList<>();
+	private static final Codec<RandomSpreadStructurePlacement> PLACEMENT_CODEC = RandomSpreadStructurePlacement.CODEC.codec();
+
+	private final List<RecipeHolder<VeinRecipe>> recipes = new ArrayList<>();
+	private final List<RecipeHolder<VeinRecipe>> clusterRecipes = new ArrayList<>();
+	/**
+	 * Keyed by placement identity, then by density. The salt of a placement cannot be read back, so
+	 * two different placements must never share a cache entry: they would end up with the same grid
+	 * and the first vein of the two would shadow the other everywhere.
+	 */
+	private final Map<RandomSpreadStructurePlacement, Map<Integer, RandomSpreadStructurePlacement>> placementCache = new IdentityHashMap<>();
 
 	public void loadAll(ServerLevel level) {
-		recipes.addAll(level.getRecipeManager().getAllRecipesFor(CreateOreExcavation.VEIN_RECIPES.getRecipeType()));
-		recipes.sort(Comparator.comparingInt(RandomSpreadGenerator::getPriority).thenComparing(RecipeHolder::id));
+		recipes.clear();
+		clusterRecipes.clear();
+		Comparator<RecipeHolder<VeinRecipe>> cmp = Comparator.comparingInt(RandomSpreadGenerator::getPriority).thenComparing(RecipeHolder::id);
+		for (RecipeHolder<VeinRecipe> r : level.getRecipeManager().getAllRecipesFor(CreateOreExcavation.VEIN_RECIPES.getRecipeType())) {
+			(r.value().isCluster() ? clusterRecipes : recipes).add(r);
+		}
+		recipes.sort(cmp);
+		clusterRecipes.sort(cmp);
+		CreateOreExcavation.LOGGER.info("Loaded {} ore vein types and {} ore cluster types", recipes.size(), clusterRecipes.size());
 	}
 
 	private static int getPriority(RecipeHolder<VeinRecipe> h) {
 		return h.value().getNegGenerationPriority();
 	}
 
-	public RecipeHolder<VeinRecipe> pick(LevelChunk chunk) {
-		int x = chunk.getPos().x;
-		int z = chunk.getPos().z;
-		int minY = QuartPos.fromBlock(chunk.getMinBuildHeight());
-		int maxY = minY + QuartPos.fromBlock(chunk.getHeight()) - 1;
-		ServerLevel level = (ServerLevel) chunk.getLevel();
-		for (RecipeHolder<VeinRecipe> recipe : recipes) {
-			ChunkPos chunkpos = recipe.value().getPlacement().getPotentialStructureChunk(level.getSeed(), x, z);
-			if(chunkpos.x == x && chunkpos.z == z) {
-				WorldgenRandom rng = new WorldgenRandom(new LegacyRandomSource(0L));
-				rng.setLargeFeatureSeed(level.getSeed(), x, z);
-				Holder<Biome> biome = chunk.getNoiseBiome(rng.nextInt(4), minY + rng.nextInt(maxY), rng.nextInt(4));
-				if(recipe.value().canGenerate(level, biome)) {
-					return recipe;
+	public record PickResult(RecipeHolder<VeinRecipe> recipe, Holder<Biome> biome, VeinRecipe.Layer layer) {
+	}
+
+	public PickResult pick(ServerLevel level, ChunkPos pos, boolean cluster, long seed) {
+		List<RecipeHolder<VeinRecipe>> list = cluster ? clusterRecipes : recipes;
+		if (list.isEmpty())return null;
+		Holder<Biome> biome = sampleBiome(level, pos, seed);
+		RegistryAccess registries = level.registryAccess();
+		for (RecipeHolder<VeinRecipe> recipe : list) {
+			VeinRecipe vein = recipe.value();
+			// a pinned chunk carries the vein whatever the biome and the grids say
+			if (vein.isFixedChunk(pos))return new PickResult(recipe, biome, vein.defaultLayer());
+			if (!vein.canGenerate(biome, registries))continue;
+			for (VeinRecipe.Layer layer : vein.layers(biome, registries)) {
+				if (layer.spacing() <= 0)continue;
+				RandomSpreadStructurePlacement placement = placementFor(vein, layer.spacing());
+				ChunkPos at = placement.getPotentialStructureChunk(seed, pos.x, pos.z);
+				if (at.x == pos.x && at.z == pos.z) {
+					return new PickResult(recipe, biome, layer);
 				}
 			}
 		}
 		return null;
 	}
 
-	private RecipeHolder<VeinRecipe> pick(ServerLevel level, ChunkPos chunk, RecipeHolder<VeinRecipe> last) {
+	public static Holder<Biome> sampleBiome(ServerLevel level, ChunkPos pos, long seed) {
 		int minY = QuartPos.fromBlock(level.getMinBuildHeight());
 		int maxY = minY + QuartPos.fromBlock(level.getHeight()) - 1;
-		for (RecipeHolder<VeinRecipe> recipe : recipes) {
-			ChunkPos chunkpos = recipe.value().getPlacement().getPotentialStructureChunk(level.getSeed(), chunk.x, chunk.z);
-			if(chunkpos.x == chunk.x && chunkpos.z == chunk.z) {
-				WorldgenRandom rng = new WorldgenRandom(new LegacyRandomSource(0L));
-				rng.setLargeFeatureSeed(level.getSeed(), chunk.x, chunk.z);
-				Holder<Biome> biome = level.getNoiseBiome(QuartPos.fromSection(chunk.x) + rng.nextInt(4), minY + rng.nextInt(maxY), QuartPos.fromSection(chunk.z) + rng.nextInt(4));
-
-				if (recipe.value().canGenerate(level, biome))
-					return recipe;
-			}
-			if(recipe == last)break;
-		}
-		return null;
+		WorldgenRandom rng = new WorldgenRandom(new LegacyRandomSource(0L));
+		rng.setLargeFeatureSeed(seed, pos.x, pos.z);
+		return level.getNoiseBiome(QuartPos.fromSection(pos.x) + rng.nextInt(4), minY + rng.nextInt(maxY), QuartPos.fromSection(pos.z) + rng.nextInt(4));
 	}
 
-	public BlockPos locate(ResourceLocation id, BlockPos pPos, ServerLevel level, int radius) {
-		RecipeHolder<?> recipe = level.getRecipeManager().byKey(id).orElse(null);
-		if(recipe != null && recipe.value() instanceof VeinRecipe) {
-			int i = SectionPos.blockToSectionCoord(pPos.getX());
-			int j = SectionPos.blockToSectionCoord(pPos.getZ());
-			for(int k = 0; k <= radius; ++k) {
-				BlockPos pos = getNearestGenerated(level, i, j, k, level.getSeed(), (RecipeHolder<VeinRecipe>) recipe);
-				if(pos != null) {
-					if (level.isLoaded(pos)) {
-						OreData data = OreDataAttachment.getData(level.getChunkAt(pos));
-						RecipeHolder<VeinRecipe> vr = data.getRecipe(level.getRecipeManager());
-						if (vr == null || !vr.id().equals(id))continue;
+	/**
+	 * The vein carries the salt of its grid and a fallback spacing, the density level names the spacing
+	 * actually used. The rescaled placements are cached per placement object, because the salt of a
+	 * placement cannot be read back: two veins sharing a cache entry would share a grid and the first
+	 * one would shadow the other everywhere.
+	 */
+	public RandomSpreadStructurePlacement placementFor(VeinRecipe recipe, int spacing) {
+		RandomSpreadStructurePlacement base = recipe.getPlacement();
+		if (spacing <= 0 || spacing == base.spacing())return base;
+		return placementCache.computeIfAbsent(base, b -> new HashMap<>()).computeIfAbsent(spacing, s -> {
+			int separation = Math.min(base.separation(), Math.max(0, s - 1));
+			return rescale(base, s, separation);
+		});
+	}
+
+	/**
+	 * The salt of a placement is not readable, so re-scale the placement through its codec.
+	 */
+	private static RandomSpreadStructurePlacement rescale(RandomSpreadStructurePlacement base, int spacing, int separation) {
+		try {
+			JsonElement encoded = PLACEMENT_CODEC.encodeStart(JsonOps.INSTANCE, base).getOrThrow();
+			if (!(encoded instanceof JsonObject obj))return base;
+			obj.addProperty("spacing", spacing);
+			obj.addProperty("separation", separation);
+			return PLACEMENT_CODEC.parse(JsonOps.INSTANCE, obj).getOrThrow();
+		} catch (Exception e) {
+			CreateOreExcavation.LOGGER.warn("Failed to rescale vein placement to {} chunks, density ignored", spacing, e);
+			return base;
+		}
+	}
+
+	public BlockPos locate(ResourceLocation id, BlockPos pPos, ServerLevel level, int radius, long seed) {
+		Pair<BlockPos, RecipeHolder<VeinRecipe>> found = locate(pPos, level, radius, false, h -> h.id().equals(id), seed);
+		return found != null ? found.getFirst() : null;
+	}
+
+	public Pair<BlockPos, RecipeHolder<VeinRecipe>> locate(BlockPos pPos, ServerLevel level, int radius, Predicate<RecipeHolder<VeinRecipe>> filter, long seed) {
+		return locate(pPos, level, radius, false, filter, seed);
+	}
+
+	public Pair<BlockPos, RecipeHolder<VeinRecipe>> locate(BlockPos pPos, ServerLevel level, int radius, boolean cluster, Predicate<RecipeHolder<VeinRecipe>> filter, long seed) {
+		List<RecipeHolder<VeinRecipe>> list = (cluster ? clusterRecipes : recipes).stream().filter(filter).toList();
+		if (list.isEmpty())return null;
+		int cx = SectionPos.blockToSectionCoord(pPos.getX());
+		int cz = SectionPos.blockToSectionCoord(pPos.getZ());
+		Set<ChunkPos> candidates = new HashSet<>();
+		for (RecipeHolder<VeinRecipe> h : list) {
+			// one grid per spacing the vein uses: a grid of another spacing is not a subset of this one
+			for (ChunkPos pinned : h.value().getChunks()) {
+				if (distance2d(pinned.getMiddleBlockPosition(0), pPos) <= radius)candidates.add(pinned);
+			}
+			for (int spacing : h.value().spacings()) {
+				int r = Math.max(0, (radius + spacing - 1) / spacing);
+				RandomSpreadStructurePlacement placement = placementFor(h.value(), spacing);
+				for (int j = -r; j <= r; j++) {
+					for (int k = -r; k <= r; k++) {
+						candidates.add(placement.getPotentialStructureChunk(seed, cx + spacing * j, cz + spacing * k));
 					}
-					return pos;
 				}
 			}
 		}
-		return null;
+		BlockPos best = null;
+		RecipeHolder<VeinRecipe> bestRecipe = null;
+		float bestDist = Float.MAX_VALUE;
+		for (ChunkPos cp : candidates) {
+			RecipeHolder<VeinRecipe> match = matches(level, cp, list, seed);
+			if (match == null)continue;
+			BlockPos pos = cp.getMiddleBlockPosition(0);
+			if (level.isLoaded(pos)) {
+				OreData data = OreDataAttachment.getData(level.getChunkAt(pos));
+				RecipeHolder<VeinRecipe> actual = cluster ? data.getClusterRecipe(level.getRecipeManager()) : data.getRecipe(level.getRecipeManager());
+				if (actual == null || !filter.test(actual))continue;
+				match = actual;
+			}
+			float d = distance2d(pos, pPos);
+			if (d < bestDist) {
+				bestDist = d;
+				best = pos;
+				bestRecipe = match;
+			}
+		}
+		return best != null ? Pair.of(best, bestRecipe) : null;
 	}
 
-	public Pair<BlockPos, RecipeHolder<VeinRecipe>> locate(BlockPos pPos, ServerLevel level, int radius, Predicate<RecipeHolder<VeinRecipe>> filter) {
-		int i = SectionPos.blockToSectionCoord(pPos.getX());
-		int j = SectionPos.blockToSectionCoord(pPos.getZ());
-		for(int k = 0; k <= radius; ++k) {
-			Pair<BlockPos, RecipeHolder<VeinRecipe>> found = null;
-			float dist = Float.MAX_VALUE;
-			for (int j2 = 0; j2 < recipes.size(); j2++) {
-				RecipeHolder<VeinRecipe> r = recipes.get(j2);
-				if (!filter.test(r))continue;
-				BlockPos pos = getNearestGenerated(level, i, j, k, level.getSeed(), r);
-				if(pos != null) {
-					float d = distance2d(pos, pPos);
-					if(d < dist) {
-						if (level.isLoaded(pos)) {
-							OreData data = OreDataAttachment.getData(level.getChunkAt(pos));
-							r = data.getRecipe(level.getRecipeManager());
-							if (r == null)continue;
-							if (!filter.test(r))continue;
-						}
-						found = Pair.of(pos, r);
-						dist = d;
-					}
-				}
-			}
-			if(found != null)
-				return found;
-		}
-		return null;
-	}
-
-	private BlockPos getNearestGenerated(ServerLevel pLevel, int pX, int pY, int pZ, long pSeed, RecipeHolder<VeinRecipe> recipe) {
-		RandomSpreadStructurePlacement pSpreadPlacement = recipe.value().getPlacement();
-		int i = pSpreadPlacement.spacing();
-
-		for(int j = -pZ; j <= pZ; ++j) {
-			boolean flag = j == -pZ || j == pZ;
-
-			for(int k = -pZ; k <= pZ; ++k) {
-				boolean flag1 = k == -pZ || k == pZ;
-				if (flag || flag1) {
-					int l = pX + i * j;
-					int i1 = pY + i * k;
-					ChunkPos chunkpos = pSpreadPlacement.getPotentialStructureChunk(pSeed, l, i1);
-
-					RecipeHolder<VeinRecipe> picked = pick(pLevel, chunkpos, recipe);
-					if(picked == recipe)
-						return chunkpos.getMiddleBlockPosition(0);
-				}
+	private RecipeHolder<VeinRecipe> matches(ServerLevel level, ChunkPos pos, List<RecipeHolder<VeinRecipe>> list, long seed) {
+		Holder<Biome> biome = sampleBiome(level, pos, seed);
+		RegistryAccess registries = level.registryAccess();
+		for (RecipeHolder<VeinRecipe> h : list) {
+			VeinRecipe vein = h.value();
+			if (vein.isFixedChunk(pos))return h;
+			if (!vein.canGenerate(biome, registries))continue;
+			for (VeinRecipe.Layer layer : vein.layers(biome, registries)) {
+				if (layer.spacing() <= 0)continue;
+				RandomSpreadStructurePlacement placement = placementFor(vein, layer.spacing());
+				ChunkPos at = placement.getPotentialStructureChunk(seed, pos.x, pos.z);
+				if (at.x == pos.x && at.z == pos.z)return h;
 			}
 		}
-
 		return null;
 	}
 

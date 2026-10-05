@@ -14,6 +14,7 @@ public class NetworkHandler {
 		PayloadRegistrar registrar = event.registrar("1");
 		registrar.playToServer(OreVeinAtlasClickPacket.ID, OreVeinAtlasClickPacket.STREAM_CODEC, NetworkHandler::handlePacketServer);
 		registrar.playToClient(OreVeinInfoPacket.ID, OreVeinInfoPacket.STREAM_CODEC, NetworkHandler::handlePacketClient);
+		registrar.playToClient(OreVeinDiscoverPacket.ID, OreVeinDiscoverPacket.STREAM_CODEC, NetworkHandler::handlePacketClient);
 	}
 
 	public static void handlePacketClient(Packet packet, IPayloadContext context) {

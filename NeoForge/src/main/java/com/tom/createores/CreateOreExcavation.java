@@ -6,9 +6,12 @@ import org.slf4j.Logger;
 
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -41,8 +44,8 @@ import com.simibubi.create.foundation.data.CreateRegistrate;
 
 import com.tom.createores.client.CCClientInit;
 import com.tom.createores.client.ClientRegistration;
+import com.tom.createores.item.HandheldDrillItem;
 import com.tom.createores.components.OreVeinAtlasDataComponent;
-import com.tom.createores.jm.JMEventListener;
 import com.tom.createores.network.NetworkHandler;
 import com.tom.createores.recipe.DrillingRecipe;
 import com.tom.createores.recipe.ExtractorRecipe;
@@ -54,7 +57,7 @@ public class CreateOreExcavation {
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	private static CreateRegistrate registrate;
-	public static boolean journeyMap, kubeJSCreate;
+	public static boolean kubeJSCreate, xaero;
 
 	private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZER = DeferredRegister.create(Registries.RECIPE_SERIALIZER, MODID);
 	private static final DeferredRegister<RecipeType<?>> TYPE_REGISTER = DeferredRegister.create(Registries.RECIPE_TYPE, MODID);
@@ -66,9 +69,12 @@ public class CreateOreExcavation {
 	public static final RecipeTypeGroup<VeinRecipe> VEIN_RECIPES = recipe("vein", VeinRecipe.Serializer::new);
 
 	public static final TagKey<Item> DRILL_TAG = TagKey.create(Registries.ITEM, ResourceLocation.tryBuild(MODID, "drills"));
+	/** Blocks the handheld drill can be used on. */
+	public static final TagKey<Block> HANDHELD_DRILL_SURFACE = TagKey.create(Registries.BLOCK, ResourceLocation.tryBuild(MODID, "handheld_drill_surface"));
 
 	public static final DeferredHolder<DataComponentType<?>, DataComponentType<OreVeinAtlasDataComponent>> ORE_VEIN_ATLAS_DATA_COMPONENT = DATA_COMPONENTS.register("ore_vein_altas_data", () -> DataComponentType.<OreVeinAtlasDataComponent>builder().persistent(OreVeinAtlasDataComponent.CODEC).build());
 	public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> ORE_VEIN_FINDER_FILTERED_COMPONENT = DATA_COMPONENTS.register("ore_vein_finder_filtered", () -> DataComponentType.<Boolean>builder().persistent(Codec.BOOL).build());
+	public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> HAND_DRILL_FUEL = DATA_COMPONENTS.register("hand_drill_fuel", () -> DataComponentType.<Integer>builder().persistent(Codec.INT).networkSynchronized(ByteBufCodecs.VAR_INT).build());
 
 	public static final Supplier<AttachmentType<OreDataAttachment>> ORE_DATA = ATTACHMENT_TYPES.register(
 			"ore_vein", () -> AttachmentType.serializable(OreDataAttachment::new).build());
@@ -87,8 +93,8 @@ public class CreateOreExcavation {
 		bus.register(ForgeConfig.class);
 		bus.register(NetworkHandler.class);
 
-		journeyMap = ModList.get().isLoaded("journeymap");
 		kubeJSCreate = ModList.get().isLoaded("kubejs_create");
+		xaero = ModList.get().isLoaded("xaerominimap") || ModList.get().isLoaded("xaeroworldmap");
 
 		if (CreateOreExcavation.isModLoaded("computercraft") && FMLEnvironment.dist == Dist.CLIENT) {
 			CCClientInit.init(bus);
@@ -143,8 +149,6 @@ public class CreateOreExcavation {
 
 	private void doClientStuff(final FMLClientSetupEvent event) {
 		event.enqueueWork(ClientRegistration::register);
-		if (journeyMap)
-			JMEventListener.register();
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {

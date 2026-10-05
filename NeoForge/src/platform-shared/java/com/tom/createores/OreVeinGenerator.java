@@ -4,10 +4,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.chunk.LevelChunk;
 
-import com.tom.createores.recipe.VeinRecipe;
 import com.tom.createores.util.RandomSpreadGenerator;
 
 public class OreVeinGenerator {
@@ -30,13 +28,13 @@ public class OreVeinGenerator {
 		}
 	}
 
-	public static RecipeHolder<VeinRecipe> pick(LevelChunk chunk) {
-		return getPicker((ServerLevel) chunk.getLevel()).pick(chunk);
+	public static RandomSpreadGenerator.PickResult pick(LevelChunk chunk, boolean cluster, long seed) {
+		ServerLevel level = (ServerLevel) chunk.getLevel();
+		return getPicker(level).pick(level, chunk.getPos(), cluster, seed);
 	}
 
-	public static RandomSource rngFromChunk(LevelChunk chunk) {
-		ServerLevel lvl = (ServerLevel) chunk.getLevel();
-		long seed = lvl.getSeed();
-		return RandomSource.create(seed ^ chunk.getPos().toLong());
+	public static RandomSource rngFromChunk(LevelChunk chunk, boolean cluster, long seed) {
+		long pos = chunk.getPos().toLong();
+		return RandomSource.create(seed ^ (cluster ? pos * 31L + 0x9E3779B97F4A7C15L : pos));
 	}
 }

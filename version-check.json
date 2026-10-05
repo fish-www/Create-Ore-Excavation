@@ -1,12 +1,13 @@
 {
 	"homepage": "https://www.curseforge.com/minecraft/mc-mods/create-ore-excavation",
 	"promos": {
-		"1.21.1-latest": "1.6.8",
+		"1.21.1-latest": "1.7.0",
 		"1.20.1-latest": "1.6.5",
 		"1.19.2-latest": "1.2.3",
 		"1.18.2-latest": "1.1.3"
 	},
 	"1.21.1": {
+		"1.7.0": "Reworked ore vein generation: density, reserve and regeneration time are written in the vein recipe itself, no config file in between\nAdded the Handheld Drill and ore clusters\nAdded vein regeneration\nReplaced JourneyMap with Xaero's Minimap/World Map waypoints\nReworked JEI: added a Handheld Drill category and one page per vein distribution\nThe mod ships the ore vein mechanics only: veins, clusters and their items are added by a data pack or a KubeJS script, the mod on its own generates no ore\nMap marker colours are named by the vein recipe (waypointColor)\nBiome groups are biome tags, named with the biome_tag.<namespace>.<path> language key\nServers and worlds from older versions need to be regenerated",
 		"1.6.8": "Fix crash with KubeJS Create",
 		"1.6.7": "Fixed fluid recipes",
 		"1.6.6": "Create 6.0.7 update\nFixed crash with KubeJS Create",

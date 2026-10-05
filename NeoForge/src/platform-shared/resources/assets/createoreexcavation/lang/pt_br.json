@@ -12,7 +12,6 @@
   "chat.coe.veinFinder.pos": "At: %d, %d",
   "command.coe.setvein.success": "Veia definida com sucesso para: %s",
   "config.coe.defaultInfinite": "Veias infinitas por padrão",
-  "config.coe.finiteAmountBase": "Base de quantidade da veia é finita",
   "config.coe.generationChance": "Valor de peso para Chunck vazio",
   "config.coe.maxExtractorsPerVein": "Número máximo de extrator por veio de minério, defina como 0 para infinito",
   "createoreexcavation.ponder.find_ores.header": "Encontre veios de minério usando o Localizador de Veias",

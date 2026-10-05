@@ -36,6 +36,9 @@ public class KubeJSExcavation implements KubeJSPlugin {
 	@Override
 	public void registerRecipeComponents(RecipeComponentTypeRegistry registry) {
 		registry.register(ComponentComponent.TYPE);
+		registry.register(ReserveRangeComponent.TYPE);
+		registry.register(BiomeOverrideComponent.TYPE);
+		registry.register(ChunkPosComponent.TYPE);
 		if (!CreateOreExcavation.kubeJSCreate)registry.register(ProcessingOutputJS.TYPE);
 		registry.register(PlacementJS.TYPE);
 		registry.register(FluidIngredientJS.TYPE);

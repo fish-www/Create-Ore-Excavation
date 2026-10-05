@@ -15,7 +15,6 @@
   "command.coe.locate.success": "가장 가까운 %s은(는) %s에 있습니다 (블록 %s개만큼 떨어져 있음)",
   "command.coe.setvein.success": "성공적으로 다음 광맥을 설정했습니다: %s",
   "config.coe.defaultInfinite": "기본값으로 광맥은 무한합니다",
-  "config.coe.finiteAmountBase": "Finite vein amount base",
   "config.coe.maxExtractorsPerVein": "광맥당 최대 추출기 수, 무한의 경우 0으로 설정합니다",
   "config.coe.veinFinderCd": "광맥 탐지기 재사용 대기시간 (틱)",
   "config.coe.veinFinderFar": "'다음의 흔적이 발견됨...'에 대한 광맥 탐지기의 정확도",

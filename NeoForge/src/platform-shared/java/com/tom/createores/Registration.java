@@ -36,6 +36,7 @@ import com.tom.createores.block.entity.SampleDrillBlockEntity;
 import com.tom.createores.cc.CCRegistration;
 import com.tom.createores.client.DrillRenderer;
 import com.tom.createores.client.KineticInputBlockEntityRenderer;
+import com.tom.createores.item.HandheldDrillItem;
 import com.tom.createores.item.MultiBlockItem;
 import com.tom.createores.item.OreVeinAtlasItem;
 import com.tom.createores.item.OreVeinFinderItem;
@@ -184,6 +185,13 @@ public class Registration {
 			.model(item2d("item/netherite_drill"))
 			.register();
 
+	public static final ItemEntry<HandheldDrillItem> HANDHELD_DRILL_ITEM = REGISTRATE
+			.item("handheld_drill", HandheldDrillItem::new)
+			.properties(Registration::tool)
+			.lang("Handheld Drill")
+			.model(item2d("item/handheld_drill"))
+			.register();
+
 	public static final ItemEntry<Item> RAW_DIAMOND = REGISTRATE
 			.item("raw_diamond", Item::new)
 			.properties(Registration::item)
@@ -224,9 +232,56 @@ public class Registration {
 			.register();
 
 	public static void register() {
-		add("config.coe.finiteAmountBase", "Finite vein amount base");
-		add("config.coe.defaultInfinite", "Veins infinite by default");
+		add("config.coe.defaultInfinite", "Veins with 'finite' left at default hold infinite ore");
 		add("config.coe.maxExtractorsPerVein", "Max number of extractor per ore vein, Set to 0 for infinite");
+		add("config.coe.handDrillTicks", "Ticks the Handheld Drill needs per extracted item");
+		add("config.coe.handDrillFuelPerUnit", "Fuel the Handheld Drill consumes per extracted item, 1 coal is 1600 fuel");
+		add("config.coe.handDrillFuelCapacity", "Maximum fuel the Handheld Drill can hold, 1 coal is 1600 fuel");
+		add("config.coe.handDrillRadius", "Handheld Drill cluster scan radius in chunks, the chunk the player stands in and the ring around it");
+		add("config.coe.handDrillSearchRadius", "How far the Handheld Drill looks for the closest ore cluster when its own chunk has none, in blocks");
+		add("chat.coe.handDrill.noFuel", "The Handheld Drill is out of fuel");
+		add("chat.coe.handDrill.full", "The Handheld Drill is full of fuel");
+		add("chat.coe.handDrill.fuel", "Fuel: %s/%s");
+		add("chat.coe.discover.marked", "%s ore vein markers were added to the map");
+		add("chat.coe.discover.marked.vein", "%s ore veins were marked on the map");
+		add("chat.coe.discover.marked.cluster", "%s ore clusters were marked on the map");
+		add("chat.coe.discover.cleared", "Ore vein map markers cleared");
+		add("chat.coe.discover.cleared.vein", "Ore vein map markers cleared");
+		add("chat.coe.discover.cleared.cluster", "Ore cluster map markers cleared");
+		add("command.coe.discover.success", "Found %s ore veins within %s chunks, %s of them ore clusters");
+		add("command.coe.discover.success.vein", "Found %s ore veins within %s chunks");
+		add("command.coe.discover.success.cluster", "Found %s ore clusters within %s chunks");
+		add("tooltip.coe.handDrill.fuel", "Fuel: %s/%s");
+		add("tooltip.coe.handDrill.fuelCost", "Fuel Cost: %s");
+		add("tooltip.coe.handDrill.hint", "Hold right click on stone or bedrock to mine, right click air to look for ore clusters. Hold a fuel item in the other hand and right click to load it");
+		add("vein.coe.cluster_name", "%s Cluster");
+		add("chat.coe.cluster.found", "This chunk holds %s, %s of %s left");
+		add("chat.coe.cluster.foundNoAmount", "This chunk holds %s");
+		add("chat.coe.cluster.none", "There is no ore cluster here");
+		add("chat.coe.cluster.depleted", "The ore cluster here is depleted");
+		add("chat.coe.cluster.nearby", "%s ore clusters were marked on the map");
+		add("chat.coe.cluster.nearbyNone", "Every ore cluster within %s chunks is already marked on the map");
+		add("chat.coe.cluster.far", "Closest ore cluster: %s");
+		add("chat.coe.cluster.farNone", "No ore cluster anywhere near");
+		add("chat.coe.cluster.cleared", "%s is depleted, its map marker and atlas entry were removed");
+		add("chat.coe.cluster.addedToAtlas", "The ore cluster was added to the atlas");
+		add("chat.coe.discover.removed", "%s depleted ore veins were removed from the map");
+		add("chat.coe.cluster.remaining", "%s: %s of %s left");
+		add("tooltip.coe.rarity.common", "Common mineral");
+		add("tooltip.coe.rarity.rare", "Rare mineral");
+		add("jei.coe.vein_density", "Spacing: about one vein every %s chunks");
+		add("jei.coe.vein_fixed_chunks", "Generates in chunks fixed by the pack");
+		add("jei.coe.cluster_depleted", "Disappears when depleted");
+		add("tooltip.coe.regen", "Regenerates in %s");
+		add("tooltip.coe.regen.none", "Does not regenerate");
+		add("tooltip.coe.time.day", "%s d");
+		add("tooltip.coe.time.hour", "%s h");
+		add("tooltip.coe.time.minute", "%s min");
+		add("tooltip.coe.time.second", "%s s");
+		add("vein.coe.name", "%s Vein");
+		add("vein.coe.name.biome", "%s (%s)");
+		add("tooltip.coe.biome.whitelist", "Biome Whitelist:");
+		add("tooltip.coe.biome.blacklist", "Biome Blacklist:");
 		add("config.coe.veinFinderNear", "Vein Finder 'Found Nearby' range in chunks");
 		add("config.coe.veinFinderFar", "Vein Finder accuracy for 'Found traces of ...'");
 		add("config.coe.veinFinderCd", "Vein Finder use cooldown in ticks");
@@ -245,6 +300,14 @@ public class Registration {
 		add("chat.coe.sampleDrill.lowAir", "Copper Backtank low on air");
 		add("chat.coe.sampleDrill.notDone", "The drill must finish a single mining cycle before collecting a sample.");
 		add("command.coe.setvein.success", "Successfully set vein to: %s");
+		add("command.coe.regenerate.all", "Marked every chunk of %s for %s regeneration");
+		add("command.coe.regenerate.area", "Marked %s chunks of %s for %s regeneration");
+		add("command.coe.regenerate.clear", "Cleared the %s regeneration markers of %s");
+		add("command.coe.regenerate.seed", "Seed: %s");
+		add("command.coe.regenerate.hint", "Chunks are picked again the next time they are loaded");
+		add("command.coe.regenerate.kind.vein", "ore veins");
+		add("command.coe.regenerate.kind.cluster", "ore clusters");
+		add("command.coe.regenerate.kind.both", "ore veins and ore clusters");
 		add("command.coe.locate.success", "The nearest %s is at %s (%s blocks away)");
 		add("command.coe.locate.failed", "Could not find \"%s\" within reasonable distance");
 		add("info.coe.drill.noFluid", "The machine needs drilling fluid");
@@ -253,6 +316,7 @@ public class Registration {
 		add("info.coe.drill.installed", "Installed drill: %s");
 		add("info.coe.drill.progress", "Progress");
 		add("info.coe.drill.resourceRemaining", "Resource remaining: %s");
+		add("info.coe.drill.regenRemaining", "Depleted, regenerates in %s");
 		add("info.coe.drill.err_no_vein", "No vein to excavate");
 		add("info.coe.drill.err_vein_empty", "The vein is depleted");
 		add("info.coe.drill.err_too_many_excavators", "Too many vein extractors");
@@ -272,14 +336,12 @@ public class Registration {
 		add("info.coe.atlas.location2", "~%s, *, ~%s");
 		add("info.coe.atlas.dimension", "In: %s");
 		add("jei.coe.recipe.drilling", "Drilling Machine");
+		add("jei.coe.recipe.handheld_drilling", "Handheld Drill Mining");
 		add("jei.coe.recipe.extracting", "Fluid Extractor");
 		add("jei.coe.recipe.veins", "Ore Veins");
 		add("tooltip.coe.variableImpact", "Variable Impact");
-		add("tooltip.coe.biome.whitelist", "Biome Whitelist:");
-		add("tooltip.coe.biome.blacklist", "Biome Blacklist:");
 		add("tooltip.coe.processTime", "Ticks: %s");
-		add("tooltip.coe.finiteVeins", "Finite veins size: %s - %s");
-		add("tooltip.coe.infiniteVeins", "Infinite veins");
+		add("tooltip.coe.reserve", "Reserve size: %s (%s - %s)");
 		add("tooltip.coe.page", "Page: %s/%s");
 		add("tooltip.coe.atlas.exclude", "Vein Excluded");
 		add("tooltip.coe.atlas.include", "Click to exclude");
@@ -291,7 +353,6 @@ public class Registration {
 		add("tooltip.coe.vein_finder.filtered", "Ore Vein Finder filtered using the Atlas");
 		add("ore.coe.hardenedDiamond", "Hardened Diamond");
 		add("tag.item.createoreexcavation.drills", "All Drills");
-		add("jm.coe.veinsOverlayToggle", "Create: Ore Excavation veins overlay");
 		add("upgrade.createoreexcavation.vein_finder.adjective", "Vein Surveyor");
 
 		if (CreateOreExcavation.isModLoaded("computercraft")) {

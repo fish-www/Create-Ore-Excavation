@@ -43,6 +43,7 @@ import com.tom.createores.recipe.ExcavatingRecipe;
 import com.tom.createores.recipe.VeinRecipe;
 import com.tom.createores.util.DimChunkPos;
 import com.tom.createores.util.NumberFormatter;
+import com.tom.createores.util.TimeFormatter;
 import com.tom.createores.util.TooltipUtil;
 
 public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends SmartBlockEntity implements MultiblockCapHandler, IDrill {
@@ -50,6 +51,8 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 	protected Kinetic kinetic;
 	protected ResourceLocation veinClient, recipeClient;
 	protected long resourceRemClient;
+	/** Ticks the vein still needs to regenerate, -1 when it never regenerates or nothing is loaded. */
+	protected long regenRemClient = -1;
 	protected boolean hasRotation;
 	protected ItemStack drillStack;
 	protected RecipeHolder<R> current;
@@ -92,7 +95,14 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 
 		if(rec != null) {
 			TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.progress").append(": [").append(ClientUtil.makeProgressBar(progress / (float) rec.getTicks())).append("]"));
-			if(resourceRemClient != 0)TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.resourceRemaining", NumberFormatter.formatNumber(resourceRemClient)));
+			if(resourceRemClient > 0)TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.resourceRemaining", NumberFormatter.formatNumber(resourceRemClient)));
+			if(veinR != null && !veinR.isInfiniteClient()) {
+				if(resourceRemClient < 0 && regenRemClient >= 0) {
+					TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.regenRemaining", TimeFormatter.formatTicks(regenRemClient)));
+				} else if(resourceRemClient > 0) {
+					TooltipUtil.forGoggles(tooltip, veinR.getRegenDescription());
+				}
+			}
 			if(!rec.getDrill().test(drillStack)) {
 				TooltipUtil.forGoggles(tooltip, Component.translatable("info.coe.drill.badDrill"));
 			}
@@ -153,7 +163,7 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 						updateState();
 						if(state == ExcavatorState.NO_ERROR) {
 							onFinished();
-							data.extract(1);
+							data.extract(vein.id(), 1, level.getGameTime());
 							completedOneCycle = true;
 							setChanged();
 						}
@@ -180,7 +190,7 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 			state = ExcavatorState.NO_VEIN;
 		} else if(!data.canExtract(level, worldPosition)) {
 			state = ExcavatorState.TOO_MANY_EXCAVATORS;
-		} else if(data.getResourcesRemaining(vein.value()) == -1) {
+		} else if(data.getResourcesRemaining(vein.id(), level.getGameTime()) == -1) {
 			state = ExcavatorState.VEIN_EMPTY;
 		} else if(current == null) {
 			state = ExcavatorState.NO_RECIPE;
@@ -206,6 +216,7 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 			if(tag.contains("veinId")) {
 				veinClient = ResourceLocation.tryParse(tag.getString("veinId"));
 				resourceRemClient = tag.getLong("resRem");
+				regenRemClient = tag.contains("regenRem") ? tag.getLong("regenRem") : -1L;
 			} else
 				veinClient = null;
 
@@ -228,7 +239,8 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 			tag.putByte("state", (byte) state.ordinal());
 			if(vein != null) {
 				tag.putString("veinId", vein.id().toString());
-				tag.putLong("resRem", data.getResourcesRemaining(vein.value()));
+				tag.putLong("resRem", data.getResourcesRemaining(vein.id(), level.getGameTime()));
+				tag.putLong("regenRem", data.ticksUntilRegen(vein.id(), level.getGameTime()));
 			}
 			if(current != null) {
 				tag.putString("currentRecipeId", current.id().toString());
@@ -272,7 +284,7 @@ public abstract class ExcavatingBlockEntity<R extends ExcavatingRecipe> extends 
 		if (item.getItem() == Registration.VEIN_ATLAS_ITEM.get()) {
 			if(!level.isClientSide) {
 				if (completedOneCycle) {
-					Registration.VEIN_ATLAS_ITEM.get().addVein(player, item, vein, new DimChunkPos(level, worldPosition), data.getRandomMul());
+					Registration.VEIN_ATLAS_ITEM.get().addVein(player, item, vein, new DimChunkPos(level, worldPosition), data.getTotal(vein.id()));
 				} else {
 					player.displayClientMessage(Component.translatable("chat.coe.sampleDrill.notDone"), true);
 				}

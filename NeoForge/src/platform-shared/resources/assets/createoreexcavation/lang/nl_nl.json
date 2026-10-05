@@ -10,7 +10,6 @@
   "chat.coe.veinFinder.nearby": "Dichtbij gevonden: %s",
   "chat.coe.veinFinder.nothing": "Niks",
   "config.coe.defaultInfinite": "Ertsaders standaard oneindig",
-  "config.coe.finiteAmountBase": "Eindige ertsader hoeveelheid basis",
   "config.coe.generationChance": "Kans voor lege chunk",
   "config.coe.maxExtractorsPerVein": "Max nummer vloeistofbron extractor per erts ader, Zet op 0 voor oneindigheid",
   "createoreexcavation.ponder.find_ores.header": "Vind erstaders door de ertsader vinder te gebruiken",

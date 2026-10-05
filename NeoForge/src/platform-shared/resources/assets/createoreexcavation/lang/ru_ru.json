@@ -23,7 +23,6 @@
   "command.coe.locate.success": "Ближайшая рудная жила %s находится на %s (в %s блоках отсюда)",
   "command.coe.setvein.success": "Жила успешно установлена на тип: %s",
   "config.coe.defaultInfinite": "Жилы бесконечны по умолчанию",
-  "config.coe.finiteAmountBase": "Базовый объём конечных рудных жил",
   "config.coe.maxExtractorsPerVein": "Максимальное количество буровых установок на жилу (0 — бесконечное)",
   "config.coe.veinFinderCd": "Перезарядка использований детектора",
   "config.coe.veinFinderFar": "Точность найденных следов детектором",

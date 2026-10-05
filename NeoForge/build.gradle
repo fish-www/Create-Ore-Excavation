@@ -61,8 +61,13 @@ repositories {
         }
     }
     maven {
-        name = "JourneyMap (Public)"
-        url = "https://jm.gserv.me/repository/maven-public/"
+        name = "Xaero's Mods"
+        url = "https://chocolateminecraft.com/maven"
+        content {
+            includeGroup "xaero.lib"
+            includeGroup "xaero.map"
+            includeGroup "xaero.minimap"
+        }
     }
 }
 
@@ -184,8 +189,6 @@ dependencies {
   	
   	implementation "curse.maven:the-one-probe-245211:5836106"
   	implementation "curse.maven:jade-324717:6011258"
-  	implementation 'curse.maven:journeymap-32274:6550378'
-  	compileOnly "info.journeymap:journeymap-api-neoforge:2.0.0-1.21.4-SNAPSHOT"
   	
   	implementation "dev.latvian.mods:kubejs-neoforge:2101.7.2-build.295"
 	implementation "dev.latvian.mods:rhino:2101.2.7-build.74"
@@ -193,6 +196,16 @@ dependencies {
 	implementation "curse.maven:kubejs-create-429371:7171696"
 	
 	compileOnly 'maven.modrinth:cc-tweaked:SQI2qmh5'
+
+	// Xaero's Minimap / World Map: loaded in the dev environment to test the waypoint integration
+	compileOnly "xaero.lib:xaerolib-neoforge-1.21.1:1.7.3"
+	implementation "xaero.minimap:xaerominimap-neoforge-1.21.1:26.6.0"
+	implementation "xaero.map:xaeroworldmap-neoforge-1.21.1:1.47.0"
+
+	// Optional integrations: ores added by these mods get veins/clusters, loaded in the dev environment to test them
+	implementation "maven.modrinth:create-tfmg:uDi14nbt" // 1.2.0
+	implementation "maven.modrinth:superb-warfare:bl7W8fjU" // 0.8.9.2 (Kotlin mod, hence kotlinforforge below)
+	implementation "maven.modrinth:kotlin-for-forge:uhJhCT7X" // 5.12.0
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

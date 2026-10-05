@@ -107,6 +107,12 @@ public record OreVeinAtlasDataComponent(List<ResourceLocation> discovered, List<
 			this.target = target;
 		}
 
+		public void removeVein(DimChunkPos pos) {
+			makeEdited();
+			veins.remove(pos);
+			veinsIndex.removeIf(e -> e.getFirst().equals(pos));
+		}
+
 		public void toggleHide(int id) {
 			var vein = veinsIndex.get(id).getFirst();
 			var vd = veins.get(vein);

@@ -7,8 +7,11 @@ Download: [CurseForge](https://www.curseforge.com/minecraft/mc-mods/create-ore-e
 The ore vein finder can be attached to a turtle and has one method:  
 `local useSuccess, veinFound, veinId, veinSize = finder.search()`
 
-## KubeJS
-1.21:
+## Where the ore veins are
+The mod ships the ore vein **mechanism**, not the ore veins: on its own it generates no ore at
+all, and it has no vein, cluster, drilling or extracting recipe. Write them as a data pack
+(`<world>/datapacks/` or, with KubeJS, `<instance>/kubejs/data/`) — the format is documented in
+[`docs/data-and-recipes.md`](docs/data-and-recipes.md) — or as KubeJS scripts, 1.21:
 ```js
 //Output with chance has changed to coeutil.processingOutput(<item>, <chance 0-1>) from 1.20
 
@@ -28,10 +31,10 @@ ServerEvents.recipes(event => {
 		.id("kubejs:my_vein1");
 	
 	//Coal vein with 5% chance for diamond and require a diamond drill and lava for drilling
-	//Always finite 5x-8x base
+	//Always finite, 256 chunks grid spacing and a 20k-200k (mean 150k) reserve
 	//Use .priority(<value>) for duplicate recipes with different inputs, higher values take priority
 	event.recipes.createoreexcavation.vein('{"text": "My coal vein"}', 'minecraft:coal')
-		.placement(2048, 128, 64457512).alwaysFinite().veinSize(5, 8).id("kubejs:my_coal_vein")
+		.placement(2048, 128, 64457512).alwaysFinite().density(256).reserve(20000, 200000, 150000).id("kubejs:my_coal_vein")
 		
 	event.recipes.createoreexcavation.drilling('minecraft:coal', 'kubejs:my_coal_vein', 1000)
 		.id("kubejs:my_coal1");
@@ -44,13 +47,29 @@ ServerEvents.recipes(event => {
 		.id("kubejs:my_coal2");
 	
 	//Iron vein only in overworld and a stress requirement of 512 xRPM (default is 256 xRPM)
-	//With a finite vein size between 3x-8.5x base (if finite veins are enabled)
+	//With a 20k-200k (mean 100k) reserve (if finite veins are enabled)
 	event.recipes.createoreexcavation.vein('{"text": "My iron vein"}', 'minecraft:iron_ore')
-		.placement(1024, 128, 6894685).veinSize(3, 8.5).biomeWhitelist('forge:is_overworld')
+		.placement(1024, 128, 6894685).density(128).reserve(20000, 200000, 100000).biomeWhitelist('forge:is_overworld')
 		.id("kubejs:my_iron_vein")
 	event.recipes.createoreexcavation.drilling('minecraft:raw_iron', 'kubejs:my_iron_vein', 100)
 		.stress(512).id("kubejs:my_vein3");
 	//biomeBlacklist is also available
+
+	//Ore vein with an extra distribution in the mountains and one pinned chunk
+	//biomeOverride(target, density, min, max, mean, sigma), target is one biome tag (#minecraft:is_mountain)
+	//or one biome id (minecraft:stony_peaks). Use .biomeOverrideDensity(target, density) to keep the reserve.
+	//.chunk(x, z) pins the vein to that chunk, .density(-1) keeps it off the grids
+	event.recipes.createoreexcavation.vein('{"text": "My pinned vein"}', 'minecraft:raw_iron')
+		.placement(64, 8, 424242).density(-1)
+		.biomeOverride('#minecraft:is_mountain', 128, 20000, 200000, 150000, 25000)
+		.chunk(100, 200).chunk(101, 200)
+		.id("kubejs:my_pinned_vein");
+
+	//Ore cluster (only the handheld drill can mine or detect these), waypointColor sets the map marker
+	//colour (black, gold, white, aqua, ...), rare veins and clusters without one fall back
+	event.recipes.createoreexcavation.vein('{"translate":"vein.coe.cluster_name","with":[{"text":"My ore"}]}', 'minecraft:raw_gold')
+		.placement(64, 8, 123456).cluster().rare().waypointColor('light_blue')
+		.id("kubejs:my_cluster");
 
 	//Fluid extractor recipes (Fluids)
 	//Lava as drilling fluid

@@ -15,7 +15,6 @@
   "command.coe.locate.success": "Il più vicino %s si trova a %s (%s blocchi di distanza)",
   "command.coe.setvein.success": "Vena impostata con successo su: %s",
   "config.coe.defaultInfinite": "Vene infinite per impostazione predefinita",
-  "config.coe.finiteAmountBase": "Quantità di vena finita di base",
   "config.coe.maxExtractorsPerVein": "Numero massimo di perforatrici, impostare a 0 per infinito",
   "config.coe.veinFinderCd": "Tempo di attesa per l'uso del rilevatore di vene in ticks",
   "config.coe.veinFinderFar": "Precisione del rilevatore di vene per 'Trovate tracce di ...'",

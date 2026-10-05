@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "create",
+  "key": {
+    "d": {
+      "item": "createoreexcavation:drill"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    }
+  },
+  "pattern": [
+    " i ",
+    "idi",
+    " i "
+  ],
+  "result": {
+    "count": 1,
+    "id": "createoreexcavation:handheld_drill"
+  }
+}

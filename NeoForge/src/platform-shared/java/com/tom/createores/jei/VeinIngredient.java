@@ -18,7 +18,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.tom.createores.CreateOreExcavation;
 import com.tom.createores.Registration;
-import com.tom.createores.util.NumberFormatter;
 
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -29,12 +28,16 @@ import mezz.jei.api.registration.IModIngredientRegistration;
 
 public class VeinIngredient implements IIngredientHelper<Vein>, IIngredientRenderer<Vein> {
 	public static final IIngredientType<Vein> VEIN = () -> Vein.class;
-	private ItemStack drill;
+	private ItemStack drill, handDrill;
 
 	public VeinIngredient(IModIngredientRegistration registration) {
 		RecipeManager mngr = Minecraft.getInstance().getConnection().getRecipeManager();
-		registration.register(VEIN, mngr.getAllRecipesFor(CreateOreExcavation.VEIN_RECIPES.getRecipeType()).stream().map(Vein::new).toList(), this, this, Vein.CODEC);
+		// One entry per distribution of a vein, exactly like the recipe pages
+		List<Vein> entries = JEIHandler.buildVeinDisplays(mngr).stream().map(d -> new Vein(d.recipe(), d.entry())).toList();
+		registration.register(VEIN, entries, this, this, Vein.CODEC);
 		drill = new ItemStack(Registration.NORMAL_DRILL_ITEM.get());
+		handDrill = new ItemStack(Registration.HANDHELD_DRILL_ITEM.get());
+		CreateOreExcavation.LOGGER.info("[JEI] {} vein ingredients, first: {}", entries.size(), entries.isEmpty() ? "-" : getDisplayName(entries.get(0)));
 	}
 
 	@Override
@@ -49,7 +52,7 @@ public class VeinIngredient implements IIngredientHelper<Vein>, IIngredientRende
 		float s = 0.5f;
 		guiGraphics.pose().translate(8, 8, 100);
 		guiGraphics.pose().scale(s, s, s);
-		GuiGameElement.of(drill)
+		GuiGameElement.of(ingredient.recipe0().isCluster() ? handDrill : drill)
 		.render(guiGraphics);
 		guiGraphics.pose().popPose();
 
@@ -59,16 +62,19 @@ public class VeinIngredient implements IIngredientHelper<Vein>, IIngredientRende
 	@Override
 	@Deprecated
 	public List<Component> getTooltip(Vein ingredient, TooltipFlag tooltipFlag) {
-		List<Component> tooltip = new ArrayList<>();
-		tooltip.add(ingredient.recipe0().veinName);
-		if(ingredient.recipe0().isInfiniteClient())tooltip.add(Component.translatable("tooltip.coe.infiniteVeins"));
-		else tooltip.add(Component.translatable("tooltip.coe.finiteVeins", NumberFormatter.formatNumber(ingredient.recipe0().getMinAmountClient()), NumberFormatter.formatNumber(ingredient.recipe0().getMaxAmountClient())));
-		return tooltip;
+		return buildTooltip(ingredient);
 	}
 
 	@Override
 	public void getTooltip(ITooltipBuilder tooltip, Vein ingredient, TooltipFlag tooltipFlag) {
-		tooltip.addAll(getTooltip(ingredient, tooltipFlag));
+		tooltip.addAll(buildTooltip(ingredient));
+	}
+
+	private static List<Component> buildTooltip(Vein ingredient) {
+		List<Component> tooltip = new ArrayList<>();
+		tooltip.add(VeinInfoUtil.title(ingredient.recipe0(), ingredient.entry()));
+		tooltip.addAll(VeinInfoUtil.details(ingredient.recipe0(), ingredient.entry()));
+		return tooltip;
 	}
 
 	@Override
@@ -78,12 +84,17 @@ public class VeinIngredient implements IIngredientHelper<Vein>, IIngredientRende
 
 	@Override
 	public String getDisplayName(Vein ingredient) {
-		return ingredient.recipe0().veinName.getString();
+		return VeinInfoUtil.title(ingredient.recipe0(), ingredient.entry()).getString();
+	}
+
+	@Override
+	public String getDisplayModId(Vein ingredient) {
+		return CreateOreExcavation.MODID;
 	}
 
 	@Override
 	public String getUid(Vein ingredient, UidContext context) {
-		return ingredient.id().toString();
+		return ingredient.id().toString() + "/" + ingredient.entry();
 	}
 
 	@Override

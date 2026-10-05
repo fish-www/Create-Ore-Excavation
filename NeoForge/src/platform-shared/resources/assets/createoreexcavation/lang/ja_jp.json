@@ -10,7 +10,6 @@
   "chat.coe.veinFinder.nearby": "近辺に発見: %s",
   "chat.coe.veinFinder.nothing": "なし",
   "config.coe.defaultInfinite": "デフォルトで鉱脈が無限",
-  "config.coe.finiteAmountBase": "鉱脈の上限量",
   "config.coe.generationChance": "何もないチャンクの割合",
   "config.coe.maxExtractorsPerVein": "鉱脈あたりの採掘機の最大数、0に設定すると無限",
   "createoreexcavation.ponder.find_ores.header": "鉱脈ファインダーで鉱脈を探す",

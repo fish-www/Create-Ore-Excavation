@@ -34,13 +34,20 @@ import com.tom.createores.OreData;
 import com.tom.createores.OreDataAttachment;
 import com.tom.createores.OreVeinGenerator;
 import com.tom.createores.Registration;
+import com.tom.createores.VeinRegeneration;
 import com.tom.createores.components.OreVeinAtlasDataComponent;
 import com.tom.createores.network.NetworkHandler;
+import com.tom.createores.network.OreVeinDiscoverPacket;
 import com.tom.createores.network.OreVeinInfoPacket;
+import com.tom.createores.network.VeinMarkers;
 import com.tom.createores.recipe.VeinRecipe;
 import com.tom.createores.util.ComponentJoiner;
 import com.tom.createores.util.RandomSpreadGenerator;
 
+/**
+ * Reports the veins around the player. The veins to look for are picked in the atlas:
+ * a blank atlas detects everything, and an atlas with veins excluded (or one target) narrows it down.
+ */
 public class OreVeinFinderItem extends Item {
 
 	public OreVeinFinderItem(Properties properties) {
@@ -92,53 +99,58 @@ public class OreVeinFinderItem extends Item {
 	}
 
 	private void detect(Level level, BlockPos pos, Player player) {
-		ItemStack atlas = ItemStack.EMPTY;
-		for (int i = 0;i < player.getInventory().getContainerSize(); i++) {
-			ItemStack is = player.getInventory().getItem(i);
-			if (is.getItem() == Registration.VEIN_ATLAS_ITEM.get()) {
-				atlas = is;
-				break;
-			}
-		}
+		ItemStack atlas = OreVeinAtlasItem.findAtlas(player);
 		var atlasData = atlas.get(CreateOreExcavation.ORE_VEIN_ATLAS_DATA_COMPONENT);
 		Predicate<RecipeHolder<VeinRecipe>> filter = atlasData != null ? makeFilter(atlasData) : a -> true;
 
 		ChunkPos center = new ChunkPos(pos);
 		OreData found = null;
 		List<OreData> nearby = new ArrayList<>();
+		List<OreVeinDiscoverPacket.Entry> marks = new ArrayList<>();
+		RecipeManager m = level.getRecipeManager();
 		int near = Config.veinFinderNear;
 		for(int x = -near;x <= near;x++) {
 			for(int z = -near;z <= near;z++) {
-				OreData d = OreDataAttachment.getData(level.getChunk(center.x + x, center.z + z));
+				ChunkPos cp = new ChunkPos(center.x + x, center.z + z);
+				OreData d = OreDataAttachment.getData(level.getChunk(cp.x, cp.z));
 				if(x == 0 && z == 0)found = d;
 				else nearby.add(d);
+				// The ring around the player is marked on the map right away, the vein of the player's
+				// own chunk is sent with the info packet below
+				if(x != 0 || z != 0) {
+					RecipeHolder<VeinRecipe> vein = d.getRecipe(m);
+					if(vein != null && filter.test(vein))
+						marks.add(new OreVeinDiscoverPacket.Entry(cp.getMiddleBlockPosition(pos.getY()), vein.id(), false));
+				}
 			}
 		}
+		VeinMarkers.sendNew((ServerPlayer) player, level.dimension(), marks);
 		player.displayClientMessage(Component.translatable("chat.coe.veinFinder.info"), false);
 		player.displayClientMessage(Component.translatable("chat.coe.veinFinder.pos", center.x, center.z), false);
-		RecipeManager m = level.getRecipeManager();
 		Component f;
 		Component nothing = Component.translatable("chat.coe.veinFinder.nothing");
 		Component comma = Component.literal(", ");
-		if(found != null && found.getRecipe(m) != null)f = found.getRecipe(m).value().getName();
+		RecipeHolder<VeinRecipe> foundVein = found != null ? found.getRecipe(m) : null;
+		// A vein the atlas excludes is not reported, and so is not marked on the map either
+		if (foundVein != null && !filter.test(foundVein))foundVein = null;
+		if(foundVein != null)f = foundVein.value().getName();
 		else f = nothing;
 		player.displayClientMessage(Component.translatable("chat.coe.veinFinder.found", f), false);
 
 		CompoundTag infoTag = new CompoundTag();
-		ResourceLocation id = found.getRecipeId();
-		if (id != null)infoTag.putString("found", id.toString());
+		if (foundVein != null)infoTag.putString("found", foundVein.id().toString());
 		infoTag.putInt("x", pos.getX());
 		infoTag.putInt("z", pos.getZ());
 
-		ResourceLocation rl = nearby.stream().map(d -> d.getRecipe(m)).filter(r -> r != null).map(RecipeHolder::id).findFirst().orElse(null);
+		ResourceLocation rl = nearby.stream().map(d -> d.getRecipe(m)).filter(r -> r != null && filter.test(r)).map(RecipeHolder::id).findFirst().orElse(null);
 		if (rl != null) {
 			infoTag.putString("nearby", rl.toString());
 		}
 
-		f = nearby.stream().map(d -> d.getRecipe(m)).filter(r -> r != null).map(r -> r.value().getName()).collect(ComponentJoiner.joining(nothing, comma));
+		f = nearby.stream().map(d -> d.getRecipe(m)).filter(r -> r != null && filter.test(r)).map(r -> r.value().getName()).collect(ComponentJoiner.joining(nothing, comma));
 		player.displayClientMessage(Component.translatable("chat.coe.veinFinder.nearby", f), false);
 
-		Pair<BlockPos, RecipeHolder<VeinRecipe>> nearest = OreVeinGenerator.getPicker((ServerLevel) level).locate(pos, (ServerLevel) level, 16, filter);
+		Pair<BlockPos, RecipeHolder<VeinRecipe>> nearest = OreVeinGenerator.getPicker((ServerLevel) level).locate(pos, (ServerLevel) level, 256, filter, VeinRegeneration.seedFor((ServerLevel) level, OreVeinDiscoverPacket.Kind.VEIN));
 		if(nearest != null) {
 			BlockPos at = nearest.getFirst();
 			int i = Math.round(RandomSpreadGenerator.distance2d(at, pos) / Config.veinFinderFar) * Config.veinFinderFar;

@@ -8,7 +8,15 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import com.tom.createores.recipe.VeinRecipe;
 
-public record Vein(RecipeHolder<VeinRecipe> recipe) {
+/**
+ * One guide ingredient: a vein recipe with the distribution it stands for, entry 0 being the default
+ * distribution of the vein and entry {@code i} the one of {@code biomeOverrides[i - 1]}.
+ */
+public record Vein(RecipeHolder<VeinRecipe> recipe, int entry) {
+
+	public Vein(RecipeHolder<VeinRecipe> recipe) {
+		this(recipe, 0);
+	}
 
 	public ResourceLocation id() {
 		return recipe().id();
@@ -25,5 +33,10 @@ public record Vein(RecipeHolder<VeinRecipe> recipe) {
 				).apply(b, RecipeHolder::new);
 	}).codec();
 
-	public static final Codec<Vein> CODEC = HOLDER_CODEC.xmap(Vein::new, Vein::recipe);
+	public static final Codec<Vein> CODEC = RecordCodecBuilder.<Vein>mapCodec(b -> {
+		return b.group(
+				HOLDER_CODEC.fieldOf("recipe").forGetter(Vein::recipe),
+				Codec.INT.optionalFieldOf("entry", 0).forGetter(Vein::entry)
+				).apply(b, Vein::new);
+	}).codec();
 }

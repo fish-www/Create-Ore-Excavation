@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.level.ChunkPos;
 
@@ -13,7 +14,6 @@ import com.tom.createores.OreData;
 import com.tom.createores.OreDataAttachment;
 import com.tom.createores.Registration;
 import com.tom.createores.recipe.VeinRecipe;
-import com.tom.createores.util.ThreeState;
 
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.lua.LuaFunction;
@@ -120,7 +120,7 @@ public class OreVeinFinderTurtle extends AbstractTurtleUpgrade {
 				result.add(rec != null);
 				if (rec != null) {
 					result.add(rec.id().toString());
-					result.add(Double.valueOf(getVeinSize(d, rec.value())));
+					result.add(Double.valueOf(getVeinSize(d, rec)));
 				}
 			} else {
 				result.add(false);
@@ -132,14 +132,9 @@ public class OreVeinFinderTurtle extends AbstractTurtleUpgrade {
 			return TurtleCommandResult.success(result.toArray());
 		}
 
-		private long getVeinSize(OreData d, VeinRecipe r) {
-			if(r.isFinite() != ThreeState.NEVER) {
-				if(r.isFinite() == ThreeState.DEFAULT && Config.defaultInfinite)return 0L;
-				double mul = (r.getMaxAmount() - r.getMinAmount()) * d.getRandomMul() + r.getMinAmount();
-				long am = Math.round(mul * Config.finiteAmountBase);
-				return am;
-			}
-			return 0L;
+		private long getVeinSize(OreData d, RecipeHolder<VeinRecipe> rec) {
+			OreData.VeinInstance v = d.getInstance(rec.id());
+			return v != null ? v.total : 0L;
 		}
 	}
 }

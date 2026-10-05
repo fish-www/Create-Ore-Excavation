@@ -17,6 +17,21 @@ public class KubeJSUtil {
 		return (cx, args) -> function.accept((T) cx.recipe());
 	}
 
+	public static <T extends KubeRecipe> ResolvedRecipeSchemaFunction wrapFunc(List<RecipeComponent<?>> params, BiConsumer<T, List<Object>> function) {
+		return new ResolvedRecipeSchemaFunction() {
+
+			@Override
+			public List<RecipeComponent<?>> arguments() {
+				return params;
+			}
+
+			@Override
+			public void execute(RecipeScriptContext cx, List<Object> args) {
+				function.accept((T) cx.recipe(), args);
+			}
+		};
+	}
+
 	public static <T extends KubeRecipe, A1> ResolvedRecipeSchemaFunction wrapFunc(RecipeComponent<A1> param1, BiConsumer<T, A1> function) {
 		List<RecipeComponent<?>> params = List.of(param1);
 		return new ResolvedRecipeSchemaFunction() {

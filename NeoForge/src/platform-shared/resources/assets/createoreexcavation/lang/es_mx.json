@@ -23,7 +23,6 @@
   "command.coe.locate.success": "La %s más cercana está en %s (%s bloques de distancia)",
   "command.coe.setvein.success": "Veta establecida correctamente: %s",
   "config.coe.defaultInfinite": "Vetas infinitas por defecto",
-  "config.coe.finiteAmountBase": "Base de cantidad de vetas finitas",
   "config.coe.maxExtractorsPerVein": "Número máximo de extractores por veta de mineral, establecer en 0 para infinito",
   "config.coe.veinFinderCd": "Enfriamiento del uso del Buscador de Vetas en ticks",
   "config.coe.veinFinderFar": "Precisión del Buscador de Vetas para 'Se encontraron rastros de ...'",

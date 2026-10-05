@@ -191,6 +191,9 @@ public class OreVeinAtlasScreen extends AbstractContainerScreen<OreVeinAtlasMenu
 			var t = getSelectedRecipe().veinName;
 			st.drawString(font, t, this.leftPos + 75 - font.width(t) / 2, this.topPos + 80, 4210752, false);
 
+			t = getSelectedRecipe().getRegenDescription();
+			st.drawString(font, t, this.leftPos + 15, this.topPos + 90, 4210752, false);
+
 			long size = getVeinSize();
 			if (size == 0)
 				t = Component.translatable("info.coe.atlas.vein_size.infinite");
@@ -212,14 +215,11 @@ public class OreVeinAtlasScreen extends AbstractContainerScreen<OreVeinAtlasMenu
 		return selected.recipe.value();
 	}
 
+	/**
+	 * The atlas stores the amount the vein really holds, so it can be shown as is.
+	 */
 	private long getVeinSize() {
-		if (getSelectedRecipe().isFinite() != ThreeState.NEVER) {
-			if (getSelectedRecipe().isFinite() == ThreeState.DEFAULT && menu.isDefaultInfinite())return 0L;
-			double mul = (getSelectedRecipe().getMaxAmount() - getSelectedRecipe().getMinAmount()) * selected.size + getSelectedRecipe().getMinAmount();
-			long am = Math.round(mul * menu.getFiniteBase());
-			return am;
-		}
-		return 0L;
+		return selected.size <= 0 ? 0L : Math.round(selected.size);
 	}
 
 	@Override

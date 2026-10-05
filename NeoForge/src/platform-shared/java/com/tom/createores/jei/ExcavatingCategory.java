@@ -50,19 +50,12 @@ public abstract class ExcavatingCategory<T extends ExcavatingRecipe> implements 
 
 	@Override
 	public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<T> recipe, IFocusGroup focuses) {
-		RecipeManager mngr = Minecraft.getInstance().getConnection().getRecipeManager();
-
 		builder
 		.addSlot(RecipeIngredientRole.INPUT, 51, 3)
 		.setBackground(CreateRecipeCategory.getRenderedSlot(), -1, -1)
 		.addIngredients(recipe.value().getDrill());
 
-		mngr.byKey(recipe.value().veinId).ifPresent(rec -> {
-			if(rec.value() instanceof VeinRecipe r)
-				builder
-				.addSlot(RecipeIngredientRole.CATALYST, 100, 3)
-				.addIngredient(VeinIngredient.VEIN, new Vein((RecipeHolder) rec));
-		});
+		addVeinSlot(builder, recipe.value());
 
 		recipe.value().getDrillingFluid().ifPresent(fluid -> {
 			builder
@@ -71,6 +64,23 @@ public abstract class ExcavatingCategory<T extends ExcavatingRecipe> implements 
 			.addIngredients(JeiPlatform.FLUID_STACK, JeiPlatform.wrapFluid(fluid.getMatchingFluidStacks()))
 			.setFluidRenderer(fluid.getRequiredAmount(), false, 16, 16);
 			//.addRichTooltipCallback(CreateRecipeCategory.addFluidTooltip(recipe.value().getDrillingFluid().getRequiredAmount()));
+		});
+	}
+
+	/**
+	 * Every distribution of the vein goes into the slot, so that each of them offers this page as one of
+	 * its uses, not just the default distribution.
+	 */
+	protected static void addVeinSlot(IRecipeLayoutBuilder builder, ExcavatingRecipe recipe) {
+		RecipeManager mngr = Minecraft.getInstance().getConnection().getRecipeManager();
+		mngr.byKey(recipe.veinId).ifPresent(rec -> {
+			if (rec.value() instanceof VeinRecipe r) {
+				var slot = builder.addSlot(RecipeIngredientRole.CATALYST, 100, 3);
+				for (int entry = 0; entry < r.entryCount(); entry++) {
+					if (!r.entryGenerates(entry))continue;
+					slot.addIngredient(VeinIngredient.VEIN, new Vein((RecipeHolder) rec, entry));
+				}
+			}
 		});
 	}
 
